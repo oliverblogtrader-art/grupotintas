@@ -141,6 +141,18 @@
   .admin-tabs{ display:flex; gap:6px; margin-bottom:18px; flex-wrap:wrap; }
   .admin-tab-btn{ background:var(--card); border:1px solid var(--card-border); color:var(--text-dim); font-size:.84rem; font-weight:600; padding:9px 14px; border-radius:10px; cursor:pointer; }
   .admin-tab-btn.active{ background:var(--accent); border-color:var(--accent); color:#1a1200; }
+  .tab-badge{ background:var(--danger); color:#fff; font-size:.7rem; font-weight:700; padding:1px 7px; border-radius:999px; margin-left:5px; }
+  .demanda-card{ border-radius:12px; padding:14px 16px; margin-bottom:10px; border:1px solid var(--card-border); cursor:pointer; }
+  .demanda-card.novo{ background:rgba(242,166,58,.15); border-color:var(--accent); }
+  .demanda-card.visto{ background:rgba(62,207,142,.1); border-color:var(--ok); }
+  .demanda-card .top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+  .demanda-card .top strong{ font-size:.95rem; }
+  .demanda-card .status{ font-size:.72rem; font-weight:700; padding:3px 10px; border-radius:999px; }
+  .demanda-card.novo .status{ background:var(--accent); color:#1a1200; }
+  .demanda-card.visto .status{ background:var(--ok); color:#062818; }
+  .demanda-card .store{ font-size:.8rem; color:var(--text-dim); margin-bottom:4px; }
+  .demanda-card .msg{ font-size:.86rem; color:var(--text); white-space:pre-wrap; }
+  .demanda-card .date{ font-size:.72rem; color:var(--text-dim); margin-top:6px; }
   .admin-panel{ display:none; }
   .admin-panel.active{ display:block; }
   .section{ background:var(--card); border:1px solid var(--card-border); border-radius:var(--radius); padding:18px; margin-bottom:18px; }
@@ -294,6 +306,7 @@
       <button class="admin-tab-btn" data-atab="conteudo">Conteúdos</button>
       <button class="admin-tab-btn" data-atab="cronograma">Cronograma</button>
       <button class="admin-tab-btn" data-atab="avisos">Avisos</button>
+      <button class="admin-tab-btn" data-atab="demanda">Demanda <span id="demandaBadge" class="tab-badge" style="display:none;">0</span></button>
       <button class="admin-tab-btn" id="configTabBtn" data-atab="config" style="display:none;">Configurações avançadas</button>
     </div>
 
@@ -442,6 +455,13 @@
       </div>
     </div>
 
+    <div class="admin-panel" id="admin-demanda">
+      <div class="section">
+        <h3>Solicitações recebidas</h3>
+        <div id="demandaList"></div>
+      </div>
+    </div>
+
     <div class="admin-panel" id="admin-config">
       <div class="section">
         <h3>Adicionar funcionário</h3>
@@ -484,7 +504,7 @@
 </div>
 
 <script id="__DATA__" type="application/json">
-{"categories":["ABC da Construção","Loja das Tintas","Casa do Construtor","Hidroelétrica"],"posts":[],"schedule":[],"notices":[],"employees":[]}
+{"categories":["ABC da Construção","Loja das Tintas","Casa do Construtor","Hidroelétrica"],"posts":[],"schedule":[],"notices":[],"employees":[],"demandas":[]}
 </script>
 
 <script>
@@ -877,6 +897,7 @@
     resetSchedForm(); renderSchedAdminList();
     resetNoticeForm(); renderNoticeAdminList();
     resetCfgForm(); renderCfgList();
+    renderDemandaList();
     document.getElementById('configTabBtn').style.display = (currentUser.role === 'samuel') ? 'inline-block' : 'none';
     document.querySelectorAll('.admin-tab-btn').forEach(function(b){ b.classList.remove('active'); });
     document.querySelectorAll('.admin-panel').forEach(function(p){ p.classList.remove('active'); });
@@ -901,6 +922,41 @@
       document.getElementById('admin-' + atab).classList.add('active');
     });
   });
+
+  function fmtDateTime(ts){
+    var d = new Date(ts);
+    return d.toLocaleDateString('pt-BR') + ' às ' + d.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+  }
+  function renderDemandaList(){
+    if(!state.demandas){ state.demandas = []; }
+    var list = state.demandas.slice().sort(function(a,b){ return (b.createdAt||0) - (a.createdAt||0); });
+    var unseen = list.filter(function(d){ return !d.seen; }).length;
+    var badge = document.getElementById('demandaBadge');
+    if(unseen > 0){ badge.textContent = unseen; badge.style.display = 'inline-block'; }
+    else { badge.style.display = 'none'; }
+
+    var el = document.getElementById('demandaList');
+    if(list.length === 0){ el.innerHTML = '<p style="color:var(--text-dim);font-size:.85rem;">Nenhuma solicitação recebida ainda.</p>'; return; }
+    el.innerHTML = list.map(function(d){
+      return '<div class="demanda-card ' + (d.seen ? 'visto' : 'novo') + '" data-id="' + d.id + '">' +
+        '<div class="top"><strong>' + esc(d.name) + '</strong><span class="status">' + (d.seen ? 'Visto' : 'Novo') + '</span></div>' +
+        '<div class="store">' + esc(d.store) + '</div>' +
+        '<div class="msg">' + esc(d.message) + '</div>' +
+        '<div class="date">' + fmtDateTime(d.createdAt) + '</div>' +
+      '</div>';
+    }).join('');
+    el.querySelectorAll('.demanda-card').forEach(function(card){
+      card.addEventListener('click', function(){
+        var id = card.getAttribute('data-id');
+        var d = state.demandas.find(function(x){ return x.id === id; });
+        if(d && !d.seen){
+          d.seen = true;
+          renderDemandaList();
+          persist('Marcado como visto');
+        }
+      });
+    });
+  }
 
   document.getElementById('fCatNew').addEventListener('click', function(){
     var name = prompt('Nome da nova categoria:');
@@ -1137,11 +1193,18 @@
     var store = document.getElementById('reqStore').value.trim();
     var context = document.getElementById('reqContext').value.trim();
     if(!name || !store || !context){ document.getElementById('reqErr').textContent = 'Preencha todos os campos.'; return; }
+
+    if(!state.demandas){ state.demandas = []; }
+    state.demandas.push({
+      id: uid(), name: name, store: store, message: context,
+      createdAt: Date.now(), seen: false
+    });
+    persist('Chamado enviado');
+
     var msg = 'Novo chamado pela Central de Execução:\n\nNome: ' + name + '\nLoja: ' + store + '\nSolicitação: ' + context;
     var waUrl = 'https://wa.me/' + SAMUEL_WHATSAPP + '?text=' + encodeURIComponent(msg);
     document.getElementById('reqOverlay').classList.remove('open');
     window.open(waUrl, '_blank');
-    showToast('Chamado enviado via WhatsApp');
   });
 
   renderPublic();
