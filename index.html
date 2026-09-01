@@ -377,6 +377,10 @@
         <div class="field">
           <div class="checkline"><input type="checkbox" id="svc_naopostado"><label for="svc_naopostado" style="margin:0;">Vídeo produzido — ainda não postado</label></div>
         </div>
+        <div class="field">
+          <label for="fLink">Link do vídeo (opcional)</label>
+          <input type="text" id="fLink" placeholder="Cole aqui o link do vídeo postado">
+        </div>
         <div class="toggle-row">
           <label style="margin:0;font-size:.9rem;">Tráfego pago / Orgânico?</label>
           <label class="switch"><input type="checkbox" id="fTraffic"><span class="slider"></span></label>
@@ -608,7 +612,7 @@
       return '<div class="post-card">' +
         '<div class="thumb">' +
           (p.photo ? '<img src="'+p.photo+'" alt="">' : '<div class="noimg">Sem imagem</div>') +
-          '<div class="play-badge">'+playSvg+'</div>' +
+          '<div class="play-badge" data-play-id="'+p.id+'" data-link="'+esc(p.link||'')+'" data-notposted="'+(p.notPosted?'1':'0')+'">'+playSvg+'</div>' +
           '<div class="month-tag">'+esc(p.month||'')+'</div>' +
           (p.notPosted ? '<div class="month-tag" style="left:10px;right:auto;background:rgba(242,166,58,.92);color:#1a1200;font-weight:700;">Ainda não postado</div>' : '') +
         '</div>' +
@@ -622,6 +626,20 @@
         '</div>' +
       '</div>';
     }).join('');
+
+    el.querySelectorAll('.play-badge').forEach(function(btn){
+      btn.style.pointerEvents = 'auto';
+      btn.style.cursor = 'pointer';
+      btn.addEventListener('click', function(){
+        if(btn.getAttribute('data-notposted') === '1'){
+          showToast('Ainda não está postado');
+          return;
+        }
+        var link = btn.getAttribute('data-link');
+        if(link){ window.open(link, '_blank'); }
+        else { showToast('Nenhum link cadastrado ainda'); }
+      });
+    });
   }
 
   var TASK_LABELS = { gravacao:'Gravação', edicao:'Edição de vídeo', roteiro:'Roteiro de edição', drone:'Uso de drone', legenda:'Legenda' };
@@ -710,6 +728,7 @@
     document.getElementById('fCat').selectedIndex = 0;
     ['svc_gravacao','svc_edicao','svc_legenda','svc_exportacao'].forEach(function(id){ document.getElementById(id).checked = false; });
     document.getElementById('svc_naopostado').checked = false;
+    document.getElementById('fLink').value = '';
     document.getElementById('fTraffic').checked = false;
     document.getElementById('trafficFields').classList.remove('open');
     document.getElementById('fTotalViews').value = '';
@@ -734,6 +753,7 @@
     document.getElementById('fCat').value = p.category || state.categories[0];
     ['gravacao','edicao','legenda','exportacao'].forEach(function(k){ document.getElementById('svc_'+k).checked = !!(p.services && p.services[k]); });
     document.getElementById('svc_naopostado').checked = !!p.notPosted;
+    document.getElementById('fLink').value = p.link || '';
     var tr = p.traffic || {};
     document.getElementById('fTraffic').checked = !!tr.enabled;
     document.getElementById('trafficFields').classList.toggle('open', !!tr.enabled);
@@ -1081,6 +1101,7 @@
       month: month, title: title, category: document.getElementById('fCat').value,
       photo: pendingPhoto || null,
       notPosted: document.getElementById('svc_naopostado').checked,
+      link: document.getElementById('fLink').value.trim(),
       services: {
         gravacao: document.getElementById('svc_gravacao').checked,
         edicao: document.getElementById('svc_edicao').checked,
