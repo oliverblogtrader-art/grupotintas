@@ -439,8 +439,12 @@
           </div>
           <div class="field">
             <label for="schedTime">Hora</label>
-            <input type="time" id="schedTime">
+            <input type="text" id="schedTime" placeholder="Ex: 14:30" inputmode="numeric">
           </div>
+        </div>
+        <div class="field">
+          <label for="schedCompany">Nome da empresa</label>
+          <input type="text" id="schedCompany" placeholder="Ex: ABC da Construção — unidade tal">
         </div>
         <div class="field">
           <label>Será feito</label>
@@ -661,7 +665,10 @@
         .map(function(k){ return '<span class="task-chip">'+checkSvg+TASK_LABELS[k]+'</span>'; }).join('');
       return '<div class="sched-card">' +
         '<div class="sched-date"><div class="d">'+esc(dt.d)+'</div><div class="m">'+esc(dt.m)+'</div>' + (s.time ? '<div class="t">'+esc(s.time)+'</div>' : '') + '</div>' +
-        '<div class="sched-tasks">'+(chips || '<span style="color:var(--text-dim);font-size:.82rem;">Sem tarefas marcadas</span>')+'</div>' +
+        '<div class="sched-tasks">' +
+          (s.company ? '<div style="font-weight:700;margin-bottom:6px;">'+esc(s.company)+'</div>' : '') +
+          (chips || '<span style="color:var(--text-dim);font-size:.82rem;">Sem tarefas marcadas</span>') +
+        '</div>' +
       '</div>';
     }).join('');
   }
@@ -823,12 +830,20 @@
       });
     });
   }
+  function tomorrowISO(){
+    var d = new Date();
+    d.setDate(d.getDate() + 1);
+    var m = String(d.getMonth()+1).padStart(2,'0');
+    var day = String(d.getDate()).padStart(2,'0');
+    return d.getFullYear() + '-' + m + '-' + day;
+  }
   function resetSchedForm(){
     document.getElementById('schedEditId').value = '';
     document.getElementById('schedFormTitle').textContent = 'Adicionar item ao cronograma';
     document.getElementById('schedCancelEdit').style.display = 'none';
-    document.getElementById('schedDate').value = '';
+    document.getElementById('schedDate').value = tomorrowISO();
     document.getElementById('schedTime').value = '';
+    document.getElementById('schedCompany').value = '';
     ['task_gravacao','task_edicao','task_roteiro','task_drone','task_legenda'].forEach(function(id){ document.getElementById(id).checked = false; });
   }
   function loadSchedIntoForm(id){
@@ -839,6 +854,7 @@
     document.getElementById('schedCancelEdit').style.display = 'inline-flex';
     document.getElementById('schedDate').value = s.date || '';
     document.getElementById('schedTime').value = s.time || '';
+    document.getElementById('schedCompany').value = s.company || '';
     Object.keys(TASK_LABELS).forEach(function(k){ document.getElementById('task_'+k).checked = !!(s.tasks && s.tasks[k]); });
     window.scrollTo(0,0);
   }
@@ -1132,6 +1148,7 @@
       createdAt: existing ? existing.createdAt : Date.now(),
       createdBy: existing ? existing.createdBy : (currentUser ? currentUser.name : ''),
       date: date, time: document.getElementById('schedTime').value,
+      company: document.getElementById('schedCompany').value.trim(),
       tasks: {
         gravacao: document.getElementById('task_gravacao').checked,
         edicao: document.getElementById('task_edicao').checked,
